@@ -282,7 +282,7 @@ def start_download():
 
     try:
         download_progress[task_id] = {'status': 'starting', 'percent': 0}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
             info = ydl.extract_info(url, download=True)
             file_path = ydl.prepare_filename(info)
             download_progress[task_id]['filepath'] = file_path
