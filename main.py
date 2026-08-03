@@ -240,8 +240,7 @@ def start_download():
 
     temp_dir = tempfile.mkdtemp()
     ydl_opts = {
-        # 'format' : f'{format_id}/b/best', # ffmpeg 미설치로 인한 통합포맷 우선 다운로드
-        'format': f'{format_id}/bestvideo+bestaudio/best', # 고화질 시도, 안되면 통합포맷
+        'format': f'{format_id}+bestaudio/bestvideo+bestaudio/best', # ffmpeg를 통한 고화질+음성 자동 병합
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
