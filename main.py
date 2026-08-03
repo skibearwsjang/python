@@ -169,12 +169,13 @@ HTML_TEMPLATE = """
        <iframe id="previewPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>
 
-    <!-- 진행바 
+    <!-- 진행바 -->
     <div id="progressContainer" class="progress-container">
         <div id="progressBar" class="progress-bar">0%</div>
     </div>
     <p id="statusMsg" style="font-size:0.85rem; color:#aaa; margin-top:8px;"></p>
 
+    <!--
     <div id="resultBox" class="result">
         <h4 id="videoTitle"></h4>
         <label for="formatSelect">화질/포맷 선택:</label>
