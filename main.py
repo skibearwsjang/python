@@ -68,8 +68,7 @@ HTML_TEMPLATE = """
 
     .btn:hover { opacity: 0.85; }
     .btn-search { background: #ff4757; color: white; }
-    .btn-analyze { background: #007bff; color: white; width: 100%; margin-top: 10px; padding: 10px; }
-    .btn-download { background: #28a745; color: white; width: 100%; margin-top: 15px; padding: 12px; font-size: 1rem; }
+    .btn-download { background: #28a745; color: white; width: 100%; margin-top: 10px; padding: 12px; font-size: 0.95rem; }
 
     /* 검색된 영상 카드 목록 */
     .results-container {
@@ -121,54 +120,13 @@ HTML_TEMPLATE = """
     .progress-bar {
         width: 0%;
         height: 22px;
-        background-color: #007bff;
+        background-color: #28a745;
         text-align: center;
         line-height: 22px;
         color: white;
         font-size: 0.8rem;
         font-weight: bold;
         transition: width 0.2s;
-    }
-
-    .progress-bar.downloading {
-        background-color: #28a745;
-    }
-
-    /* 화질 분석 및 다운로드 상자 */
-    .analysis-box {
-        display: none;
-        padding: 20px;
-        background: #1e1e1e;
-        border-radius: 8px;
-        border: 1px solid #007bff;
-        margin-top: 20px;
-        margin-bottom: 25px;
-    }
-
-    .analysis-box h4 {
-        margin-top: 0;
-        margin-bottom: 15px;
-        font-size: 1.1rem;
-        color: #f1f1f1;
-        word-break: break-all;
-    }
-
-    .analysis-box label {
-        font-size: 0.9rem;
-        color: #aaa;
-        display: block;
-        margin-bottom: 8px;
-    }
-
-    select {
-        width: 100%;
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #333;
-        background: #2b2b2b;
-        color: #fff;
-        font-size: 0.95rem;
-        outline: none;
     }
 </style>
 </head>
@@ -188,21 +146,12 @@ HTML_TEMPLATE = """
     </div>
     <p id="statusMsg" style="font-size:0.85rem; color:#aaa; margin-top:-5px; margin-bottom:15px; text-align:center;"></p>
 
-    <!-- 3. 선택한 영상 분석 및 화질 선택 상자 -->
-    <div id="analysisBox" class="analysis-box">
-        <h4 id="targetTitle"></h4>
-        <input type="hidden" id="targetUrl">
-        <label for="formatSelect">화질/포맷 선택</label>
-        <select id="formatSelect"></select>
-        <button id="downloadBtn" class="btn btn-download" onclick="downloadVideo()">다운로드 시작</button>
-    </div>
-
-    <!-- 4. 검색 결과 영상 카드가 출력될 컨테이너 -->
+    <!-- 3. 검색 결과 영상 카드가 출력될 컨테이너 -->
     <div id="searchResultsContainer" class="results-container"></div>
 
 <script>
     // 진행률 표시 업데이트
-    function updateProgress(percent, text, isDownload = false) {
+    function updateProgress(percent, text) {
         const container = document.getElementById('progressContainer');
         const bar = document.getElementById('progressBar');
         const status = document.getElementById('statusMsg');
@@ -212,12 +161,6 @@ HTML_TEMPLATE = """
         bar.style.width = roundedPercent + '%';
         bar.innerText = roundedPercent + '%';
         status.innerText = text;
-        
-        if (isDownload) {
-            bar.classList.add('downloading');
-        } else {
-            bar.classList.remove('downloading');
-        }
     }
 
     // 유튜브 URL에서 11자리 Video ID 추출
@@ -234,7 +177,6 @@ HTML_TEMPLATE = """
         if (!query) return alert('검색어를 입력해 주세요.');
 
         const container = document.getElementById('searchResultsContainer');
-        document.getElementById('analysisBox').style.display = 'none'; // 이전 분석 상자 숨김
         container.innerHTML = '<p style="text-align:center; color:#aaa;">관련 영상을 검색 중입니다...</p>';
 
         // 단일 URL을 직접 입력한 경우
@@ -284,71 +226,19 @@ HTML_TEMPLATE = """
                 <div class="player-wrapper">
                     <iframe src="https://www.youtube.com/embed/${video.id}" allowfullscreen></iframe>
                 </div>
-                <button onclick="analyzeSelectedVideo('${video.url}')" class="btn btn-analyze">이 영상 분석 및 다운로드</button>
+                <button onclick="downloadStandardVideo('${video.url}')" class="btn btn-download">표준 화질로 바로 다운로드</button>
             `;
 
             container.appendChild(card);
         });
     }
 
-    // [이 영상 분석 및 다운로드] 버튼 클릭 시 동작
-    async function analyzeSelectedVideo(url) {
-        document.getElementById('targetUrl').value = url;
-        updateProgress(10, "선택한 영상의 화질 정보를 분석 중입니다...");
-
-        try {
-            const res = await fetch('/analyze', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                cache: 'no-cache',
-                body: JSON.stringify({url: url})
-            });
-
-            const data = await res.json();
-
-            if(data.error) {
-                alert('분석 오류: ' + data.error);
-                document.getElementById('progressContainer').style.display = 'none';
-                return;
-            }
-
-            updateProgress(100, "분석 완료!");
-            document.getElementById('targetTitle').innerText = data.title;
-
-            const select = document.getElementById('formatSelect');
-            select.innerHTML = '';
-
-            data.formats.forEach(f => {
-                const opt = document.createElement('option');
-                opt.value = f.id;
-                opt.innerText = f.text;
-                select.appendChild(opt);
-            });
-
-            const analysisBox = document.getElementById('analysisBox');
-            analysisBox.style.display = 'block';
-            analysisBox.scrollIntoView({ behavior: 'smooth' });
-
-            setTimeout(() => {
-                document.getElementById('progressContainer').style.display = 'none';
-                document.getElementById('statusMsg').innerText = "";
-            }, 1500);
-
-        } catch (err) {
-            alert('분석 요청에 실패했습니다: ' + err);
-            document.getElementById('progressContainer').style.display = 'none';
-        }
-    }
-
-    // 다운로드 실행
-    function downloadVideo() {
-        const url = document.getElementById('targetUrl').value;
-        const formatId = document.getElementById('formatSelect').value;
-
-        if (!url || !formatId) return alert('유효한 영상 정보를 먼저 분석해 주세요.');
+    // 표준 화질 다운로드 실행
+    function downloadStandardVideo(url) {
+        if (!url) return alert('유효한 영상 URL이 아닙니다.');
 
         const downloadId = 'dl_' + Date.now();
-        updateProgress(0, "서버에서 다운로드를 준비 중입니다...", true);
+        updateProgress(0, "서버에서 다운로드를 준비 중입니다...");
 
         // SSE를 통한 실시간 진행률 수신
         const eventSource = new EventSource(`/progress/${downloadId}`);
@@ -357,11 +247,11 @@ HTML_TEMPLATE = """
             const data = JSON.parse(e.data);
             
             if (data.percent !== undefined) {
-                updateProgress(data.percent, `서버에서 영상 다운로드 중...`, true);
+                updateProgress(data.percent, `서버에서 영상 다운로드 중...`);
             }
 
             if (data.status === 'finished') {
-                updateProgress(100, "다운로드 완료! 브라우저로 전송 중...", true);
+                updateProgress(100, "다운로드 완료! 브라우저로 전송 중...");
                 eventSource.close();
                 window.location.href = `/get_file?task_id=${downloadId}`;
             }
@@ -373,7 +263,7 @@ HTML_TEMPLATE = """
             }
         };
 
-        fetch(`/start_download?task_id=${downloadId}&url=${encodeURIComponent(url)}&format_id=${encodeURIComponent(formatId)}`);
+        fetch(`/start_download?task_id=${downloadId}&url=${encodeURIComponent(url)}`);
     }
 </script>
 </body>
@@ -418,72 +308,11 @@ def search_youtube():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-# 2. 선택한 영상의 화질/포맷 분석 엔드포인트
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    data = request.get_json(silent=True)
-    if not data or 'url' not in data:
-        return jsonify({"error": "유효한 URL 데이터가 전달되지 않았습니다."}), 400
-
-    url = data.get('url')
-
-    ydl_opts = {
-        'format': 'all',
-        'quiet': True,
-        'no_warnings': True,
-        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web']}}
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            title = info.get('title', '제목 없음')
-            formats = info.get('formats', [])
-
-            options = []
-            for f in formats:
-                ext = f.get('ext', '')
-                if ext in ['mhtml', 'vtt'] or f.get('format_note') == 'storyboard':
-                    continue
-
-                fid = f.get('format_id')
-                res = f.get('resolution')
-                if not res or res == 'N/A':
-                    height = f.get('height')
-                    res = f"{height}p" if height else 'N/A'
-
-                vcodec = f.get('vcodec', 'none')
-                acodec = f.get('acodec', 'none')
-                note = f.get('format_note', '')
-
-                if vcodec != 'none' and acodec != 'none':
-                    type_str = "영상+음성"
-                elif vcodec != 'none':
-                    type_str = "비디오전용"
-                elif acodec != 'none':
-                    type_str = "오디오전용"
-                else:
-                    type_str = "기타"
-
-                options.append({
-                    "id": fid,
-                    "text": f"[{ext.upper()}] {res} ({type_str}) {note} - ID: {fid}"
-                })
-
-            if not options:
-                options.append({"id": "best", "text": "기본 최적 화질 (best)"})
-
-            return jsonify({"title": title, "formats": options})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-# 3. 비동기 다운로드 실행
+# 2. 비동기 표준 화질 다운로드 실행
 @app.route('/start_download')
 def start_download():
     task_id = request.args.get('task_id')
     url = request.args.get('url')
-    format_id = request.args.get('format_id')
 
     def progress_hook(d):
         if d['status'] == 'downloading':
@@ -498,10 +327,8 @@ def start_download():
     temp_dir = tempfile.mkdtemp()
     ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
 
-    if format_id:
-        selected_format = f"{format_id}+bestaudio/{format_id}/best"
-    else:
-        selected_format = "bestvideo+bestaudio/best"
+    # 표준 화질(720p 이하 최적 영상+음성) 포맷 설정
+    selected_format = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
 
     ydl_opts = {
         'format': selected_format,
@@ -525,7 +352,7 @@ def start_download():
 
     return jsonify({"status": "ok"})
 
-# 4. SSE (Server-Sent Events) 다운로드 진행률 스트리밍
+# 3. SSE (Server-Sent Events) 다운로드 진행률 스트리밍
 @app.route('/progress/<task_id>')
 def progress(task_id):
     def generate():
@@ -538,7 +365,7 @@ def progress(task_id):
             time.sleep(0.5)
     return Response(generate(), mimetype='text/event-stream')
 
-# 5. 완성된 파일 브라우저 전송
+# 4. 완성된 파일 브라우저 전송
 @app.route('/get_file')
 def get_file():
     task_id = request.args.get('task_id')
