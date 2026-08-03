@@ -239,11 +239,14 @@ def start_download():
             download_progress[task_id]['filename'] = d['filename']
 
     temp_dir = tempfile.mkdtemp()
+    ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
+
     ydl_opts = {
-        'format': f'{format_id}+bestaudio/bestvideo+bestaudio/best', # ffmpeg를 통한 고화질+음성 자동 병합
+        'format': f'{format_id}+bestaudio/bestvideo+bestaudio/best',
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+        'ffmpeg_location': ffmpeg_bin if os.path.exists(ffmpeg_bin) else None,  # ffmpeg 경로 직접 명시
         'progress_hooks': [progress_hook]
     }
 
