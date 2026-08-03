@@ -243,7 +243,6 @@ def start_download():
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
         'progress_hooks': [progress_hook]
     }
-    }
 
     try:
         download_progress[task_id] = {'status': 'starting', 'percent': 0}
