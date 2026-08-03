@@ -278,8 +278,9 @@ HTML_TEMPLATE = """
 
         function downloadVideo() {
             const url = document.getElementById('urlInput').value;
-            const formatId = document.getElementById('formatSelect').value;
-            if(!url || !formatId) return alert('URL과 화질을 선택해주세요.');
+            if(!url) return alert('URL을 입력해주세요.');
+            // const formatId = document.getElementById('formatSelect').value;
+            // if(!url || !formatId) return alert('URL과 화질을 선택해주세요.');
 
             const downloadId = 'dl_' + Date.now();
             updateProgress(0, "서버에서 다운로드를 준비 중입니다...", true);
