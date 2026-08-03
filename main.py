@@ -173,7 +173,7 @@ def analyze():
         'quiet': True, 
         'no_warnings': True, 
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
-        # 봇 감지 우회를 위한 extractor_args 추가
+        # 봇 차단 방지용 옵션
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'ios', 'web']
@@ -194,7 +194,13 @@ def analyze():
                     continue
 
                 fid = f.get('format_id')
-                res = f.get('resolution', 'N/A')
+                
+                # [개선] resolution이 없거나 N/A일 경우 height 정보(1080 -> 1080p)로 보완
+                res = f.get('resolution')
+                if not res or res == 'N/A':
+                    height = f.get('height')
+                    res = f"{height}p" if height else 'N/A'
+
                 vcodec = f.get('vcodec', 'none')
                 acodec = f.get('acodec', 'none')
                 note = f.get('format_note', '')
@@ -247,9 +253,11 @@ def start_download():
     temp_dir = tempfile.mkdtemp()
     ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
 
-    # [수정] 사용자가 선택한 format_id를 최우선 적용하고, 실패시 best 포맷으로 자동 대체
+    # [핵심 수정 부분]
+    # 선택한 format_id에 오디오 스트림(bestaudio)을 병합하도록 지시하고, 
+    # 단일 파일(오디오 전용 또는 비디오+오디오 합쳐진 18번 등)일 경우 해당 format_id 자체로 자동 다운로드하도록 처리
     if format_id:
-        selected_format = f"{format_id}/best"
+        selected_format = f"{format_id}+bestaudio/bestaudio+{format_id}/{format_id}"
     else:
         selected_format = "bestvideo+bestaudio/best"
 
