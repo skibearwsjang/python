@@ -35,8 +35,17 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <h2>▶ YouTube Downloader</h2>
-    <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요">
-    <button id="analyzeBtn" onclick="analyzeUrl()">분석하기</button>
+    <!-- 입력 영역 -->    
+    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+        <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <button onclick="previewUrl()" style="padding: 10px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">미리보기</button>
+        <button onclick="analyzeUrl()" style="padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">분석하기</button>    
+    </div>
+
+    <!-- 미리보기 플레이어 컨테이너 (처음에는 숨김) -->
+    <div id="previewContainer" style="display: none; margin-bottom: 20px; text-align: center;">
+        <iframe id="previewPlayer" width="100%" height="315" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border-radius: 8px; max-width: 560px;"></iframe>
+    </div>
 
     <!-- 진행바 -->
     <div id="progressContainer" class="progress-container">
@@ -72,6 +81,31 @@ HTML_TEMPLATE = """
             }
         }
 
+        function extractVideoId(url) {
+            if (!url) return null;
+            // 일반 URL(watch?v=), 단축 URL(youtu.be/), embed URL 등을 모두 지원하는 정규식
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function previewUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            const videoId = extractVideoId(url);
+    
+            if (!videoId) {
+                alert('올바른 유튜브 URL을 입력해 주세요.');
+                return;
+            }
+    
+            const previewContainer = document.getElementById('previewContainer');
+            const previewPlayer = document.getElementById('previewPlayer');
+    
+            // 유튜브 embed URL 설정
+            previewPlayer.src = `https://www.youtube.com/embed/${videoId}`;
+            previewContainer.style.display = 'block';
+        }
+        
         async function analyzeUrl() {
             const url = document.getElementById('urlInput').value;
             if(!url) return alert('URL을 입력해주세요.');
