@@ -15,36 +15,158 @@ HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>YouTube Downloader</title>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; background: #121212; color: #fff; }
-        input, button, select { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #333; box-sizing: border-box; }
-        button { background: #ff0000; color: white; font-weight: bold; cursor: pointer; border: none; }
-        button:hover { background: #cc0000; }
-        .download-btn { background: #28a745; margin-top: 15px; }
-        .download-btn:hover { background: #218838; }
-        select { background: #222; color: white; }
-        .result { margin-top: 20px; padding: 15px; background: #1e1e1e; border-radius: 6px; display: none; }
-        
-        /* 진행바 스타일 */
-        .progress-container { width: 100%; background-color: #333; border-radius: 6px; margin-top: 15px; overflow: hidden; display: none; }
-        .progress-bar { width: 0%; height: 22px; background-color: #ff0000; text-align: center; line-height: 22px; color: white; font-size: 0.8rem; font-weight: bold; transition: width 0.2s; }
-        .progress-bar.downloading { background-color: #28a745; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Downloader</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 640px;
+        margin: 40px auto;
+        padding: 0 20px;
+        background: #121212;
+        color: #fff;
+    }
+    
+    h2 {
+        text-align: center;
+        margin-bottom: 25px;
+        color: #ff4757;
+    }
+
+    /* 입력 및 버튼 레이아웃 */
+    .input-group {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .input-group input {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #333;
+        border-radius: 6px;
+        background: #1e1e1e;
+        color: #fff;
+        font-size: 0.95rem;
+        outline: none;
+    }
+
+    .input-group input:focus {
+        border-color: #007bff;
+    }
+
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+        opacity: 0.85;
+    }
+
+    .btn-preview { background: #28a745; color: white; }
+    .btn-analyze { background: #007bff; color: white; }
+    .btn-download { background: #ff4757; color: white; width: 100%; margin-top: 15px; padding: 12px; font-size: 1rem; }
+
+    /* 미리보기 컨테이너 */
+    .preview-container {
+        display: none;
+        margin-bottom: 25px;
+        text-align: center;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .preview-container iframe {
+        width: 100%;
+        max-width: 100%;
+        height: 315px;
+        border: none;
+    }
+
+    /* 진행바 스타일 */
+    .progress-container {
+        width: 100%;
+        background-color: #222;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        overflow: hidden;
+        display: none;
+    }
+
+    .progress-bar {
+        width: 0%;
+        height: 22px;
+        background-color: #007bff;
+        text-align: center;
+        line-height: 22px;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: bold;
+        transition: width 0.2s;
+    }
+
+    .progress-bar.downloading {
+        background-color: #28a745;
+    }
+
+    /* 결과 선택 박스 */
+    .result-box {
+        display: none;
+        padding: 20px;
+        background: #1e1e1e;
+        border-radius: 8px;
+        border: 1px solid #2a2a2a;
+    }
+
+    .result-box h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+        color: #f1f1f1;
+        word-break: break-all;
+    }
+
+    .result-box label {
+        font-size: 0.9rem;
+        color: #aaa;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        background: #2b2b2b;
+        color: #fff;
+        font-size: 0.95rem;
+        outline: none;
+    }
+</style>
 </head>
 <body>
+
     <h2>▶ YouTube Downloader</h2>
-    <!-- 입력 영역 -->    
-    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-        <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-        <button onclick="previewUrl()" style="padding: 10px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">미리보기</button>
-        <button onclick="analyzeUrl()" style="padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">분석하기</button>    
+
+    <!-- 1. 입력 영역 -->
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요">
+        <button onclick="previewUrl()" class="btn btn-preview">미리보기</button>
+        <button onclick="analyzeUrl()" class="btn btn-analyze">분석하기</button>
     </div>
 
-    <!-- 미리보기 플레이어 컨테이너 (처음에는 숨김) -->
-    <div id="previewContainer" style="display: none; margin-bottom: 20px; text-align: center;">
-        <iframe id="previewPlayer" width="100%" height="315" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border-radius: 8px; max-width: 560px;"></iframe>
+    <!-- 2. 미리보기 컨테이너 -->
+    <div id="previewContainer" class="preview-container">
+        <iframe id="previewPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>
 
     <!-- 진행바 -->
