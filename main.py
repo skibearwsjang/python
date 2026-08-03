@@ -161,7 +161,7 @@ HTML_TEMPLATE = """
     <div class="input-group">
         <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요">
         <button onclick="previewUrl()" class="btn btn-preview">미리보기</button>
-        <button onclick="downloadVideo()" class="btn btn-analyze">다운로드</button>
+        <button id="downloadBtn" class="btn btn-download" onclick="downloadVideo()">다운로드 시작</button>
     </div>
 
     <!-- 2. 미리보기 컨테이너 -->
