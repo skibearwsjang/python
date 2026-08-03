@@ -68,6 +68,17 @@ HTML_TEMPLATE = """
 
     .btn:hover { opacity: 0.85; }
     .btn-search { background: #ff4757; color: white; }
+    .btn-more { 
+        background: #333; 
+        color: #fff; 
+        border: 1px solid #555; 
+        width: 100%; 
+        padding: 14px; 
+        font-size: 1rem; 
+        margin-top: 10px; 
+        margin-bottom: 30px;
+        display: none; 
+    }
     .btn-download { background: #28a745; color: white; width: 100%; margin-top: 10px; padding: 12px; font-size: 0.95rem; }
 
     /* 검색된 영상 카드 목록 */
@@ -75,7 +86,7 @@ HTML_TEMPLATE = """
         display: flex;
         flex-direction: column;
         gap: 20px;
-        margin-bottom: 25px;
+        margin-bottom: 20px;
     }
 
     .video-card {
@@ -136,8 +147,8 @@ HTML_TEMPLATE = """
 
     <!-- 1. 키워드 검색 입력 영역 -->
     <div class="search-group">
-        <input type="text" id="searchInput" placeholder="검색할 키워드(예: 아이유 노래) 또는 유튜브 URL을 입력하세요" onkeypress="if(event.key==='Enter') searchVideos()">
-        <button onclick="searchVideos()" class="btn btn-search">검색하기</button>
+        <input type="text" id="searchInput" placeholder="검색할 키워드(예: 아이유 노래) 또는 유튜브 URL을 입력하세요" onkeypress="if(event.key==='Enter') searchVideos(true)">
+        <button onclick="searchVideos(true)" class="btn btn-search">검색하기</button>
     </div>
 
     <!-- 2. 진행 상태 및 진행바 -->
@@ -149,7 +160,13 @@ HTML_TEMPLATE = """
     <!-- 3. 검색 결과 영상 카드가 출력될 컨테이너 -->
     <div id="searchResultsContainer" class="results-container"></div>
 
+    <!-- 4. 추가 5개 계속 검색(더보기) 버튼 -->
+    <button id="moreBtn" onclick="searchVideos(false)" class="btn btn-more">▼ 계속 검색 (5개 더보기)</button>
+
 <script>
+    let currentQuery = '';
+    let fetchedCount = 0; // 이미 가져온 영상 수
+
     // 진행률 표시 업데이트
     function updateProgress(percent, text) {
         const container = document.getElementById('progressContainer');
@@ -171,50 +188,83 @@ HTML_TEMPLATE = """
         return (match && match[2].length === 11) ? match[2] : null;
     }
 
-    // 유튜브 검색 실행
-    async function searchVideos() {
-        const query = document.getElementById('searchInput').value.trim();
-        if (!query) return alert('검색어를 입력해 주세요.');
+    // 유튜브 검색 실행 (isNewSearch가 true면 처음부터, false면 더보기)
+    async function searchVideos(isNewSearch = true) {
+        const queryInput = document.getElementById('searchInput').value.trim();
+        if (!queryInput) return alert('검색어를 입력해 주세요.');
 
         const container = document.getElementById('searchResultsContainer');
-        container.innerHTML = '<p style="text-align:center; color:#aaa;">관련 영상을 검색 중입니다...</p>';
+        const moreBtn = document.getElementById('moreBtn');
 
-        // 단일 URL을 직접 입력한 경우
-        const singleVideoId = extractVideoId(query);
-        if (singleVideoId) {
-            renderVideoCards([{ id: singleVideoId, title: "입력한 유튜브 영상", url: query }]);
-            return;
+        if (isNewSearch) {
+            currentQuery = queryInput;
+            fetchedCount = 0;
+            container.innerHTML = '<p id="loadingMsg" style="text-align:center; color:#aaa;">관련 영상을 검색 중입니다...</p>';
+            moreBtn.style.display = 'none';
+
+            // 단일 URL을 직접 입력한 경우
+            const singleVideoId = extractVideoId(currentQuery);
+            if (singleVideoId) {
+                renderVideoCards([{ id: singleVideoId, title: "입력한 유튜브 영상", url: currentQuery }], true);
+                return;
+            }
+        } else {
+            moreBtn.innerText = '검색 중...';
+            moreBtn.disabled = true;
         }
 
         try {
             const res = await fetch('/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: query })
+                body: JSON.stringify({ 
+                    query: currentQuery,
+                    offset: fetchedCount,
+                    count: 5 
+                })
             });
             const data = await res.json();
 
+            // 로딩 메시지 제거
+            const loadingMsg = document.getElementById('loadingMsg');
+            if (loadingMsg) loadingMsg.remove();
+
+            moreBtn.disabled = false;
+            moreBtn.innerText = '▼ 계속 검색 (5개 더보기)';
+
             if (data.error) {
                 alert('검색 중 오류 발생: ' + data.error);
-                container.innerHTML = '';
                 return;
             }
 
-            renderVideoCards(data.results);
+            if (data.results.length === 0) {
+                if (isNewSearch) {
+                    container.innerHTML = '<p style="text-align:center; color:#aaa;">검색 결과가 없습니다.</p>';
+                } else {
+                    alert('더 이상 검색된 결과가 없습니다.');
+                    moreBtn.style.display = 'none';
+                }
+                return;
+            }
+
+            fetchedCount += data.results.length;
+            renderVideoCards(data.results, isNewSearch);
+
+            // 단일 URL이 아닌 일반 키워드 검색 시에만 계속 검색 버튼 표시
+            moreBtn.style.display = 'block';
+
         } catch (err) {
             alert('검색 요청 실패: ' + err);
-            container.innerHTML = '';
+            const loadingMsg = document.getElementById('loadingMsg');
+            if (loadingMsg) loadingMsg.remove();
         }
     }
 
-    // 검색된 상위 5개 영상 미리보기 카드 생성
-    function renderVideoCards(videos) {
+    // 영상 카드를 생성해 목록에 누적 추가
+    function renderVideoCards(videos, isNewSearch) {
         const container = document.getElementById('searchResultsContainer');
-        container.innerHTML = '';
-
-        if (!videos || videos.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#aaa;">검색 결과가 없습니다.</p>';
-            return;
+        if (isNewSearch) {
+            container.innerHTML = '';
         }
 
         videos.forEach(video => {
@@ -274,14 +324,19 @@ HTML_TEMPLATE = """
 def home():
     return render_template_string(HTML_TEMPLATE)
 
-# 1. 키워드 검색 엔드포인트 (상위 5개 추출)
+# 1. 키워드 페이징 검색 엔드포인트 (offset과 count 사용)
 @app.route('/search', methods=['POST'])
 def search_youtube():
-    data = request.get_json(silent=True)
-    query = data.get('query') if data else None
+    data = request.get_json(silent=True) or {}
+    query = data.get('query')
+    offset = data.get('offset', 0)
+    count = data.get('count', 5)
 
     if not query:
         return jsonify({"error": "검색어를 입력해 주세요."}), 400
+
+    # 요청된 offset + count 만큼 검색하도록 ytsearch 설정
+    search_limit = offset + count
 
     ydl_opts = {
         'quiet': True,
@@ -292,11 +347,14 @@ def search_youtube():
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ytsearch5:{query}", download=False)
+            info = ydl.extract_info(f"ytsearch{search_limit}:{query}", download=False)
             entries = info.get('entries', [])
 
+            # 전체 결과 중 offset 이후의 항목만 슬라이싱하여 5개 가져오기
+            paged_entries = entries[offset:offset + count]
+
             results = []
-            for entry in entries:
+            for entry in paged_entries:
                 if entry:
                     results.append({
                         "id": entry.get('id'),
