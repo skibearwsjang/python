@@ -172,7 +172,13 @@ def analyze():
     ydl_opts = {
         'quiet': True, 
         'no_warnings': True, 
-        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+        # 봇 감지 우회를 위한 extractor_args 추가
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        }
     }
     
     try:
