@@ -170,6 +170,7 @@ def analyze():
     url = data.get('url')
     
     ydl_opts = {
+        'format': 'all',  # [핵심 추가] 특정 포맷을 강제하지 않고 전체 포맷 메타데이터를 추출하도록 설정
         'quiet': True, 
         'no_warnings': True, 
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
