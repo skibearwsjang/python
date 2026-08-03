@@ -161,15 +161,15 @@ HTML_TEMPLATE = """
     <div class="input-group">
         <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요">
         <button onclick="previewUrl()" class="btn btn-preview">미리보기</button>
-        <button onclick="analyzeUrl()" class="btn btn-analyze">분석하기</button>
+        <button onclick="downloadVideo()" class="btn btn-analyze">다운로드</button>
     </div>
 
-    <!-- 2. 미리보기 컨테이너 -->
-    <div id="previewContainer" class="preview-container">
-        <iframe id="previewPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    <!-- 2. 미리보기 컨테이너 
+       <div id="previewContainer" class="preview-container">
+       <iframe id="previewPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>
 
-    <!-- 진행바 -->
+    <!-- 진행바 
     <div id="progressContainer" class="progress-container">
         <div id="progressBar" class="progress-bar">0%</div>
     </div>
@@ -181,6 +181,7 @@ HTML_TEMPLATE = """
         <select id="formatSelect"></select>
         <button id="downloadBtn" class="download-btn" onclick="downloadVideo()">다운로드 시작</button>
     </div>
+    -->
 
     <script>
         function updateProgress(percent, text, isDownload = false) {
