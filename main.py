@@ -258,11 +258,11 @@ def start_download():
     temp_dir = tempfile.mkdtemp()
     ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
 
-    # [핵심 수정 부분]
-    # 선택한 format_id에 오디오 스트림(bestaudio)을 병합하도록 지시하고, 
-    # 단일 파일(오디오 전용 또는 비디오+오디오 합쳐진 18번 등)일 경우 해당 format_id 자체로 자동 다운로드하도록 처리
+    # [수정 부분] 
+    # 선택된 format_id가 있는 경우: 해당 format_id에 bestaudio를 병합하거나, 안 될 경우 format_id 단일 다운로드 시도
+    # 오디오 전용/단일 통합 스트림(예: 18번) 선택 시에도 안전하게 작동하도록 fallback(/)을 단순하게 작성합니다.
     if format_id:
-        selected_format = f"{format_id}+bestaudio/bestaudio+{format_id}/{format_id}"
+        selected_format = f"{format_id}+bestaudio/{format_id}/best"
     else:
         selected_format = "bestvideo+bestaudio/best"
 
