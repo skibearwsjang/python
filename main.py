@@ -267,7 +267,7 @@ def start_download():
         selected_format = "bestvideo+bestaudio/best"
 
     ydl_opts = {
-        'format': selected_format,
+        'format': 'all',
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
