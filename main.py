@@ -170,11 +170,9 @@ def analyze():
     url = data.get('url')
     
     ydl_opts = {
-        'format': 'all',  # [핵심 추가] 특정 포맷을 강제하지 않고 전체 포맷 메타데이터를 추출하도록 설정
         'quiet': True, 
         'no_warnings': True, 
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
-        # 봇 차단 방지용 옵션
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'ios', 'web']
@@ -191,12 +189,13 @@ def analyze():
             options = []
             for f in formats:
                 ext = f.get('ext', '')
-                if ext in ['mhtml', 'sb', 'vtt']:
+                # 스토리보드(sb)나 자막 등 무의미한 포맷 제외
+                if ext in ['mhtml', 'vtt'] or f.get('format_note') == 'storyboard':
                     continue
 
                 fid = f.get('format_id')
                 
-                # resolution 안전 처리 (None 또는 N/A 대처)
+                # resolution 안전 처리
                 res = f.get('resolution')
                 if not res or res == 'N/A':
                     height = f.get('height')
@@ -219,6 +218,10 @@ def analyze():
                     "id": fid, 
                     "text": f"[{ext.upper()}] {res} ({type_str}) {note} - ID: {fid}"
                 })
+
+            # 만약 거르고 난 옵션이 없으면 기본 메시지
+            if not options:
+                options.append({"id": "best", "text": "기본 최적 화질 (best)"})
 
             return jsonify({"title": title, "formats": options})
     except Exception as e:
