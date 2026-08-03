@@ -158,18 +158,27 @@ HTML_TEMPLATE = """
     <h2>▶ YouTube Downloader</h2>
 
     <!-- 1. 입력 영역 -->
+    <div class="input-group" style="display: flex; gap: 8px; margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="검색할 키워드 또는 유튜브 URL을 입력하세요" onkeypress="if(event.key==='Enter') searchVideos()">
+        <button onclick="searchVideos()" class="btn btn-analyze" style="background:#ff4757; color:white; padding:10px 18px; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">검색하기</button>
+    </div>
+
+    <!-- 검색된 영상 목록이 나열될 컨테이너 -->
+    <div id="searchResultsContainer" style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 25px;"></div>
+
+<!--
     <div class="input-group">
         <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요">
         <button onclick="previewUrl()" class="btn btn-preview">미리보기</button>
         <button id="downloadBtn" class="btn btn-download" onclick="downloadVideo()">다운로드 시작</button>
     </div>
 
-    <!-- 2. 미리보기 컨테이너 -->
+    <!-- 2. 미리보기 컨테이너 
        <div id="previewContainer" class="preview-container">
        <iframe id="previewPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>
 
-    <!-- 진행바 -->
+    <!-- 진행바 
     <div id="progressContainer" class="progress-container">
         <div id="progressBar" class="progress-bar">0%</div>
     </div>
@@ -229,7 +238,68 @@ HTML_TEMPLATE = """
             previewPlayer.src = `https://www.youtube.com/embed/${videoId}`;
             previewContainer.style.display = 'block';
         }
-        
+
+        async function searchVideos() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) return alert('검색어를 입력해 주세요.');
+
+    const container = document.getElementById('searchResultsContainer');
+    container.innerHTML = '<p style="text-align:center; color:#aaa;">관련 영상을 검색 중입니다...</p>';
+
+    // 단순 URL 입력 시 바로 하나의 영상 재생
+    const singleVideoId = extractVideoId(query);
+    if (singleVideoId) {
+        renderVideoCards([{ id: singleVideoId, title: "입력한 유튜브 영상", url: query }]);
+        return;
+    }
+
+    try {
+        const res = await fetch('/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: query })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            alert('검색 중 오류 발생: ' + data.error);
+            container.innerHTML = '';
+            return;
+        }
+
+        renderVideoCards(data.results);
+    } catch (err) {
+        alert('검색 실패: ' + err);
+        container.innerHTML = '';
+    }
+}
+
+// 추출된 영상 목록을 HTML로 미리보기 카드 생성
+function renderVideoCards(videos) {
+    const container = document.getElementById('searchResultsContainer');
+    container.innerHTML = '';
+
+    if (!videos || videos.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#aaa;">검색 결과가 없습니다.</p>';
+        return;
+    }
+
+    videos.forEach(video => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #2a2a2a; text-align: center;';
+
+        card.innerHTML = `
+            <h4 style="margin-top:0; margin-bottom:12px; color:#fff; font-size:1rem; word-break:break-all;">${video.title}</h4>
+            <div style="background:#000; border-radius:6px; overflow:hidden; margin-bottom:12px;">
+                <iframe src="https://www.youtube.com/embed/${video.id}" width="100%" height="280" frameborder="0" allowfullscreen></iframe>
+            </div>
+            <button onclick="selectVideoForAnalysis('${video.url}')" style="background:#007bff; color:white; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%;">이 영상 분석 및 다운로드</button>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
         async function analyzeUrl() {
             const url = document.getElementById('urlInput').value;
             if(!url) return alert('URL을 입력해주세요.');
@@ -319,7 +389,40 @@ HTML_TEMPLATE = """
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE)
+@app.route('/search', methods=['POST'])
+def search_youtube():
+    data = request.get_json(silent=True)
+    query = data.get('query') if data else None
+    
+    if not query:
+        return jsonify({"error": "검색어를 입력해 주세요."}), 400
 
+    # ytsearch5:검색어 패턴을 사용해 상위 5개 검색 결과 추출
+    ydl_opts = {
+        'quiet': True,
+        'extract_flat': True, # 빠른 검색을 위해 상세 포맷 제외
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+        'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web']}}
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # ytsearch5: 키워드로 상위 5개 검색
+            info = ydl.extract_info(f"ytsearch5:{query}", download=False)
+            entries = info.get('entries', [])
+            
+            results = []
+            for entry in entries:
+                results.append({
+                    "id": entry.get('id'),
+                    "title": entry.get('title'),
+                    "url": f"https://www.youtube.com/watch?v={entry.get('id')}"
+                })
+                
+            return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+        
 @app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.get_json(silent=True)
