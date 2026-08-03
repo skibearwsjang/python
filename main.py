@@ -241,12 +241,15 @@ def start_download():
     temp_dir = tempfile.mkdtemp()
     ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
 
+    # format_id가 지정되어 있으면 해당 id + bestaudio 또는 해당 id 자체를 우선 사용
+    selected_format = f"{format_id}+bestaudio/{format_id}/best" if format_id else "bestvideo+bestaudio/best"
+
     ydl_opts = {
-        'format': f'{format_id}+bestaudio/bestvideo+bestaudio/best',
+        'format': selected_format,
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
-        'ffmpeg_location': ffmpeg_bin if os.path.exists(ffmpeg_bin) else None,  # ffmpeg 경로 직접 명시
+        'ffmpeg_location': ffmpeg_bin if os.path.exists(ffmpeg_bin) else None,
         'progress_hooks': [progress_hook]
     }
 
