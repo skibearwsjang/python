@@ -57,9 +57,12 @@ HTML_TEMPLATE = """
             const bar = document.getElementById('progressBar');
             const status = document.getElementById('statusMsg');
             
+            // 10% 단위로 버림 처리
+            const roundedPercent = Math.floor(percent / 10) * 10;
+            
             container.style.display = 'block';
-            bar.style.width = percent + '%';
-            bar.innerText = Math.round(percent) + '%';
+            bar.style.width = roundedPercent + '%';
+            bar.innerText = roundedPercent + '%';
             status.innerText = text;
 
             if (isDownload) {
@@ -73,7 +76,7 @@ HTML_TEMPLATE = """
             const url = document.getElementById('urlInput').value;
             if(!url) return alert('URL을 입력해주세요.');
 
-            updateProgress(30, "영상을 분석하는 중입니다...");
+            updateProgress(10, "영상을 분석하는 중입니다..."); // 10% 시작
 
             try {
                 const res = await fetch('/analyze', {
@@ -129,7 +132,8 @@ HTML_TEMPLATE = """
             eventSource.onmessage = function(e) {
                 const data = JSON.parse(e.data);
                 if (data.percent) {
-                    updateProgress(data.percent, `서버 다운로드 중... (${Math.round(data.percent)}%)`, true);
+                    // 서버에서 받은 퍼센트를 updateProgress 함수에 그대로 전달 (내부에서 10% 단위 처리)
+                    updateProgress(data.percent, `서버 다운로드 중...`, true);
                 }
                 if (data.status === 'finished') {
                     updateProgress(100, "파일을 브라우저로 전송합니다...", true);
@@ -236,9 +240,8 @@ def start_download():
 
     temp_dir = tempfile.mkdtemp()
     ydl_opts = {
-        # 선택한 format_id 단독 다운로드를 최우선으로 하되, 
-        # 실패 시 영상+음성이 통합된 포맷(b 또는 best)을 다운로드
-        'format': f'{format_id}/b/best',
+        # 'format' : f'{format_id}/b/best', # ffmpeg 미설치로 인한 통합포맷 우선 다운로드
+        'format': f'{format_id}/bestvideo+bestaudio/best', # 고화질 시도, 안되면 통합포맷
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
