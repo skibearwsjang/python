@@ -103,7 +103,6 @@ def analyze():
     ydl_opts = {
         'quiet': True, 
         'no_warnings': True, 
-        'format': 'all',
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None
     }
     
@@ -115,11 +114,32 @@ def analyze():
             
             options = []
             for f in formats:
-                fid = f.get('format_id')
                 ext = f.get('ext', '')
+                
+                # mhtml, sb(자막/썸네일) 등 불필요한 메타데이터 포맷 제외
+                if ext in ['mhtml', 'sb', 'vtt']:
+                    continue
+
+                fid = f.get('format_id')
                 res = f.get('resolution', 'N/A')
+                vcodec = f.get('vcodec', 'none')
+                acodec = f.get('acodec', 'none')
                 note = f.get('format_note', '')
-                options.append({"id": fid, "text": f"[{ext}] {res} {note} (ID: {fid})"})
+
+                # 타입 구분 (영상만 / 음성만 / 영상+음성통합)
+                if vcodec != 'none' and acodec != 'none':
+                    type_str = "영상+음성"
+                elif vcodec != 'none':
+                    type_str = "비디오전용"
+                elif acodec != 'none':
+                    type_str = "오디오전용"
+                else:
+                    type_str = "기타"
+
+                options.append({
+                    "id": fid, 
+                    "text": f"[{ext.upper()}] {res} ({type_str}) {note} - ID: {fid}"
+                })
 
             return jsonify({"title": title, "formats": options})
     except Exception as e:
