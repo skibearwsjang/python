@@ -1,5 +1,7 @@
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, jsonify, send_file
 import yt_dlp
+import os
+import tempfile
 
 app = Flask(__name__)
 
@@ -15,6 +17,8 @@ HTML_TEMPLATE = """
         input, button, select { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #333; box-sizing: border-box; }
         button { background: #ff0000; color: white; font-weight: bold; cursor: pointer; border: none; }
         button:hover { background: #cc0000; }
+        .download-btn { background: #28a745; margin-top: 15px; }
+        .download-btn:hover { background: #218838; }
         select { background: #222; color: white; }
         .result { margin-top: 20px; padding: 15px; background: #1e1e1e; border-radius: 6px; display: none; }
     </style>
@@ -26,14 +30,19 @@ HTML_TEMPLATE = """
 
     <div id="resultBox" class="result">
         <h4 id="videoTitle"></h4>
+        <label for="formatSelect">화질/포맷 선택:</label>
         <select id="formatSelect"></select>
-        <p style="font-size:0.85rem; color:#aaa;">* PythonAnywhere 무료 플랜의 네트워크 제한으로 인해 일부 다운로드가 제한될 수 있습니다.</p>
+        <!-- 다운로드 버튼 추가 -->
+        <button class="download-btn" onclick="downloadVideo()">다운로드 시작</button>
+        <p id="statusMsg" style="font-size:0.85rem; color:#aaa; margin-top:10px;"></p>
     </div>
 
     <script>
         async function analyzeUrl() {
             const url = document.getElementById('urlInput').value;
             if(!url) return alert('URL을 입력해주세요.');
+
+            document.getElementById('statusMsg').innerText = "영상을 분석하는 중입니다...";
 
             const res = await fetch('/analyze', {
                 method: 'POST',
@@ -44,6 +53,7 @@ HTML_TEMPLATE = """
 
             if(data.error) {
                 alert('오류 발생: ' + data.error);
+                document.getElementById('statusMsg').innerText = "";
                 return;
             }
 
@@ -59,6 +69,19 @@ HTML_TEMPLATE = """
             });
 
             document.getElementById('resultBox').style.display = 'block';
+            document.getElementById('statusMsg').innerText = "";
+        }
+
+        function downloadVideo() {
+            const url = document.getElementById('urlInput').value;
+            const formatId = document.getElementById('formatSelect').value;
+            
+            if(!url || !formatId) return alert('URL과 화질을 선택해주세요.');
+
+            document.getElementById('statusMsg').innerText = "서버에서 다운로드 준비 중입니다. 잠시만 기다려주세요...";
+            
+            // 파일 다운로드 링크로 이동
+            window.location.href = `/download?url=${encodeURIComponent(url)}&format_id=${encodeURIComponent(formatId)}`;
         }
     </script>
 </body>
@@ -77,12 +100,11 @@ def analyze():
 
     url = data.get('url')
     
-    # ydl_opts에 cookiefile 경로 추가
     ydl_opts = {
         'quiet': True, 
         'no_warnings': True, 
         'format': 'all',
-        'cookiefile': 'cookies.txt'  # 쿠키 파일 사용
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None
     }
     
     try:
@@ -96,11 +118,39 @@ def analyze():
                 fid = f.get('format_id')
                 ext = f.get('ext', '')
                 res = f.get('resolution', 'N/A')
-                options.append({"id": fid, "text": f"[{ext}] 화질: {res} (ID: {fid})"})
+                note = f.get('format_note', '')
+                options.append({"id": fid, "text": f"[{ext}] {res} {note} (ID: {fid})"})
 
             return jsonify({"title": title, "formats": options})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+@app.route('/download')
+def download():
+    url = request.args.get('url')
+    format_id = request.args.get('format_id')
+
+    if not url or not format_id:
+        return "잘못된 요청입니다.", 400
+
+    temp_dir = tempfile.mkdtemp()
+    
+    ydl_opts = {
+        'format': f'{format_id}+bestaudio/best', # 선택한 영상 + 오디오 병합
+        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+        'quiet': True,
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            
+            # 다운로드 완료된 파일 브라우저 전송
+            return send_file(filename, as_attachment=True)
+    except Exception as e:
+        return f"다운로드 중 오류 발생: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True)
