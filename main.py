@@ -170,6 +170,7 @@ def analyze():
     url = data.get('url')
     
     ydl_opts = {
+        'format': 'all',  # [핵심 추가] 특정 포맷을 강제하지 않고 전체 포맷 메타데이터를 추출하도록 설정
         'quiet': True, 
         'no_warnings': True, 
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
@@ -195,7 +196,7 @@ def analyze():
 
                 fid = f.get('format_id')
                 
-                # [개선] resolution이 없거나 N/A일 경우 height 정보(1080 -> 1080p)로 보완
+                # resolution 안전 처리 (None 또는 N/A 대처)
                 res = f.get('resolution')
                 if not res or res == 'N/A':
                     height = f.get('height')
