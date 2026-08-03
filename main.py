@@ -1,9 +1,14 @@
-from flask import Flask, render_template_string, request, jsonify, send_file
+from flask import Flask, render_template_string, request, jsonify, send_file, Response
 import yt_dlp
 import os
 import tempfile
+import json
+import time
 
 app = Flask(__name__)
+
+# 각 다운로드 작업의 진행 상황을 저장할 딕셔너리
+download_progress = {}
 
 # HTML 템플릿
 HTML_TEMPLATE = """
@@ -21,67 +26,127 @@ HTML_TEMPLATE = """
         .download-btn:hover { background: #218838; }
         select { background: #222; color: white; }
         .result { margin-top: 20px; padding: 15px; background: #1e1e1e; border-radius: 6px; display: none; }
+        
+        /* 진행바 스타일 */
+        .progress-container { width: 100%; background-color: #333; border-radius: 6px; margin-top: 15px; overflow: hidden; display: none; }
+        .progress-bar { width: 0%; height: 22px; background-color: #ff0000; text-align: center; line-height: 22px; color: white; font-size: 0.8rem; font-weight: bold; transition: width 0.2s; }
+        .progress-bar.downloading { background-color: #28a745; }
     </style>
 </head>
 <body>
     <h2>▶ YouTube Downloader</h2>
     <input type="text" id="urlInput" placeholder="유튜브 URL을 입력하세요">
-    <button onclick="analyzeUrl()">분석하기</button>
+    <button id="analyzeBtn" onclick="analyzeUrl()">분석하기</button>
+
+    <!-- 진행바 -->
+    <div id="progressContainer" class="progress-container">
+        <div id="progressBar" class="progress-bar">0%</div>
+    </div>
+    <p id="statusMsg" style="font-size:0.85rem; color:#aaa; margin-top:8px;"></p>
 
     <div id="resultBox" class="result">
         <h4 id="videoTitle"></h4>
         <label for="formatSelect">화질/포맷 선택:</label>
         <select id="formatSelect"></select>
-        <!-- 다운로드 버튼 추가 -->
-        <button class="download-btn" onclick="downloadVideo()">다운로드 시작</button>
-        <p id="statusMsg" style="font-size:0.85rem; color:#aaa; margin-top:10px;"></p>
+        <button id="downloadBtn" class="download-btn" onclick="downloadVideo()">다운로드 시작</button>
     </div>
 
     <script>
+        function updateProgress(percent, text, isDownload = false) {
+            const container = document.getElementById('progressContainer');
+            const bar = document.getElementById('progressBar');
+            const status = document.getElementById('statusMsg');
+            
+            container.style.display = 'block';
+            bar.style.width = percent + '%';
+            bar.innerText = Math.round(percent) + '%';
+            status.innerText = text;
+
+            if (isDownload) {
+                bar.classList.add('downloading');
+            } else {
+                bar.classList.remove('downloading');
+            }
+        }
+
         async function analyzeUrl() {
             const url = document.getElementById('urlInput').value;
             if(!url) return alert('URL을 입력해주세요.');
 
-            document.getElementById('statusMsg').innerText = "영상을 분석하는 중입니다...";
+            updateProgress(30, "영상을 분석하는 중입니다...");
 
-            const res = await fetch('/analyze', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url: url})
-            });
-            const data = await res.json();
+            try {
+                const res = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url})
+                });
+                const data = await res.json();
 
-            if(data.error) {
-                alert('오류 발생: ' + data.error);
-                document.getElementById('statusMsg').innerText = "";
-                return;
+                if(data.error) {
+                    alert('오류 발생: ' + data.error);
+                    updateProgress(0, "");
+                    document.getElementById('progressContainer').style.display = 'none';
+                    return;
+                }
+
+                updateProgress(100, "분석 완료!");
+                
+                document.getElementById('videoTitle').innerText = data.title;
+                const select = document.getElementById('formatSelect');
+                select.innerHTML = '';
+                
+                data.formats.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.id;
+                    opt.innerText = f.text;
+                    select.appendChild(opt);
+                });
+
+                document.getElementById('resultBox').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('progressContainer').style.display = 'none';
+                    document.getElementById('statusMsg').innerText = "";
+                }, 1500);
+
+            } catch (err) {
+                alert('분석 중 오류가 발생했습니다.');
+                document.getElementById('progressContainer').style.display = 'none';
             }
-
-            document.getElementById('videoTitle').innerText = data.title;
-            const select = document.getElementById('formatSelect');
-            select.innerHTML = '';
-            
-            data.formats.forEach(f => {
-                const opt = document.createElement('option');
-                opt.value = f.id;
-                opt.innerText = f.text;
-                select.appendChild(opt);
-            });
-
-            document.getElementById('resultBox').style.display = 'block';
-            document.getElementById('statusMsg').innerText = "";
         }
 
         function downloadVideo() {
             const url = document.getElementById('urlInput').value;
             const formatId = document.getElementById('formatSelect').value;
-            
             if(!url || !formatId) return alert('URL과 화질을 선택해주세요.');
 
-            document.getElementById('statusMsg').innerText = "서버에서 다운로드 준비 중입니다. 잠시만 기다려주세요...";
-            
-            // 파일 다운로드 링크로 이동
-            window.location.href = `/download?url=${encodeURIComponent(url)}&format_id=${encodeURIComponent(formatId)}`;
+            const downloadId = 'dl_' + Date.now();
+            updateProgress(0, "서버에서 다운로드를 준비 중입니다...", true);
+
+            // Server-Sent Events (SSE)로 서버 다운로드 진행률 실시간 수신
+            const eventSource = new EventSource(`/progress/${downloadId}`);
+
+            eventSource.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.percent) {
+                    updateProgress(data.percent, `서버 다운로드 중... (${Math.round(data.percent)}%)`, true);
+                }
+                if (data.status === 'finished') {
+                    updateProgress(100, "파일을 브라우저로 전송합니다...", true);
+                    eventSource.close();
+                    
+                    // 파일 실제 다운로드 링크 이동
+                    window.location.href = `/get_file?task_id=${downloadId}`;
+                }
+                if (data.error) {
+                    alert("다운로드 오류: " + data.error);
+                    eventSource.close();
+                    document.getElementById('progressContainer').style.display = 'none';
+                }
+            };
+
+            // 서버 다운로드 요청 시작
+            fetch(`/start_download?task_id=${downloadId}&url=${encodeURIComponent(url)}&format_id=${encodeURIComponent(formatId)}`);
         }
     </script>
 </body>
@@ -115,8 +180,6 @@ def analyze():
             options = []
             for f in formats:
                 ext = f.get('ext', '')
-                
-                # mhtml, sb(자막/썸네일) 등 불필요한 메타데이터 포맷 제외
                 if ext in ['mhtml', 'sb', 'vtt']:
                     continue
 
@@ -126,7 +189,6 @@ def analyze():
                 acodec = f.get('acodec', 'none')
                 note = f.get('format_note', '')
 
-                # 타입 구분 (영상만 / 음성만 / 영상+음성통합)
                 if vcodec != 'none' and acodec != 'none':
                     type_str = "영상+음성"
                 elif vcodec != 'none':
@@ -145,33 +207,63 @@ def analyze():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/download')
-def download():
+@app.route('/progress/<task_id>')
+def progress(task_id):
+    def generate():
+        while True:
+            prog = download_progress.get(task_id, {})
+            yield f"data: {json.dumps(prog)}\n\n"
+            if prog.get('status') == 'finished' or 'error' in prog:
+                break
+            time.sleep(0.5)
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/start_download')
+def start_download():
+    task_id = request.args.get('task_id')
     url = request.args.get('url')
     format_id = request.args.get('format_id')
 
-    if not url or not format_id:
-        return "잘못된 요청입니다.", 400
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+            downloaded = d.get('downloaded_bytes', 0)
+            percent = (downloaded / total * 100) if total > 0 else 0
+            download_progress[task_id] = {'status': 'downloading', 'percent': percent}
+        elif d['status'] == 'finished':
+            download_progress[task_id]['status'] = 'finished'
+            download_progress[task_id]['filename'] = d['filename']
 
     temp_dir = tempfile.mkdtemp()
-    
     ydl_opts = {
-        # 선택한 포맷 ID가 없거나 실패할 경우 단일 최고 화질/음질 포맷으로 안전하게 폴백(fallback)
         'format': f'{format_id}/bestvideo+bestaudio/best',
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
-        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+        'progress_hooks': [progress_hook]
     }
 
     try:
+        download_progress[task_id] = {'status': 'starting', 'percent': 0}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            
-            # 다운로드 완료된 파일 브라우저 전송
-            return send_file(filename, as_attachment=True)
+            file_path = ydl.prepare_filename(info)
+            download_progress[task_id]['filepath'] = file_path
+            download_progress[task_id]['status'] = 'finished'
     except Exception as e:
-        return f"다운로드 중 오류 발생: {str(e)}", 500
+        download_progress[task_id] = {'error': str(e)}
+
+    return jsonify({"status": "ok"})
+
+@app.route('/get_file')
+def get_file():
+    task_id = request.args.get('task_id')
+    prog = download_progress.get(task_id, {})
+    filepath = prog.get('filepath')
+
+    if filepath and os.path.exists(filepath):
+        return send_file(filepath, as_attachment=True)
+    return "파일을 찾을 수 없습니다.", 404
 
 if __name__ == '__main__':
     app.run(debug=True)
