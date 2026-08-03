@@ -241,8 +241,12 @@ def start_download():
     temp_dir = tempfile.mkdtemp()
     ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
 
-    # format_id가 지정되어 있으면 해당 id + bestaudio 또는 해당 id 자체를 우선 사용
-    selected_format = f"{format_id}+bestaudio/{format_id}/best" if format_id else "bestvideo+bestaudio/best"
+    # [수정 부분] format_id 조건 분기 처리
+    if format_id:
+        # 단일 포맷 요청 후, 오디오가 없는 비디오 전용 포맷일 경우에만 ffmpeg 병합(bestaudio) 시도
+        selected_format = f"{format_id}+bestaudio/bestvideo+{format_id}/{format_id}"
+    else:
+        selected_format = "bestvideo+bestaudio/best"
 
     ydl_opts = {
         'format': selected_format,
