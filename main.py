@@ -71,8 +71,19 @@ def home():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    url = request.json.get('url')
-    ydl_opts = {'quiet': True, 'no_warnings': True, 'format': 'all'}
+    data = request.get_json(silent=True)
+    if not data or 'url' not in data:
+        return jsonify({"error": "유효한 URL 데이터가 전달되지 않았습니다."}), 400
+
+    url = data.get('url')
+    
+    # ydl_opts에 cookiefile 경로 추가
+    ydl_opts = {
+        'quiet': True, 
+        'no_warnings': True, 
+        'format': 'all',
+        'cookiefile': 'cookies.txt'  # 쿠키 파일 사용
+    }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
