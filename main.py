@@ -247,10 +247,9 @@ def start_download():
     temp_dir = tempfile.mkdtemp()
     ffmpeg_bin = os.path.join(os.getcwd(), 'ffmpeg')
 
-    # [수정 부분] format_id 조건 분기 처리
+    # [수정] 사용자가 선택한 format_id를 최우선 적용하고, 실패시 best 포맷으로 자동 대체
     if format_id:
-        # 단일 포맷 요청 후, 오디오가 없는 비디오 전용 포맷일 경우에만 ffmpeg 병합(bestaudio) 시도
-        selected_format = f"{format_id}+bestaudio/bestvideo+{format_id}/{format_id}"
+        selected_format = f"{format_id}/best"
     else:
         selected_format = "bestvideo+bestaudio/best"
 
@@ -260,7 +259,12 @@ def start_download():
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
         'ffmpeg_location': ffmpeg_bin if os.path.exists(ffmpeg_bin) else None,
-        'progress_hooks': [progress_hook]
+        'progress_hooks': [progress_hook],
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        }
     }
 
     try:
