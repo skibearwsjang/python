@@ -236,8 +236,9 @@ def start_download():
 
     temp_dir = tempfile.mkdtemp()
     ydl_opts = {
-        # 선택한 format_id를 먼저 시도하고, 안 될 경우 최고 화질 통합 포맷(b/best) 및 단일 포맷으로 안전하게 변경
-        'format': f'{format_id}+bestaudio/{format_id}/b/best',
+        # 선택한 format_id 단독 다운로드를 최우선으로 하되, 
+        # 실패 시 영상+음성이 통합된 포맷(b 또는 best)을 다운로드
+        'format': f'{format_id}/b/best',
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
