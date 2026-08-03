@@ -164,7 +164,7 @@ HTML_TEMPLATE = """
         <button onclick="downloadVideo()" class="btn btn-analyze">다운로드</button>
     </div>
 
-    <!-- 2. 미리보기 컨테이너 
+    <!-- 2. 미리보기 컨테이너 -->
        <div id="previewContainer" class="preview-container">
        <iframe id="previewPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>
